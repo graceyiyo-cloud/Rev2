@@ -1,13 +1,824 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>總計營收</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="冷氣紀錄">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#475569">
+    <link rel="apple-touch-icon" href="./icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        html { font-size: 110%; }
+        body { font-family: ui-sans-serif, system-ui, sans-serif; background-color: #ffffff !important; }
+        .hidden { display: none !important; }
+        .completed-row { background-color: #f6f8fb !important; border-left: none !important; border-top: 4px solid #94a3b8 !important; opacity: 0.98; position: relative; }
+        .stats-card { border-radius: 1.5rem; border: 1px solid #e2e8f0; border-top-width: 4px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05); }
+        .stats-card-all { background: linear-gradient(180deg, #3d4c63 0%, #344256 100%); border-color: #405168; border-top-color: #93a6bf; color: #ffffff; }
+        .stats-card-year { background: linear-gradient(180deg, #ffffff 0%, #fafbff 100%); border-color: #e5e7eb; border-top-color: #a7b4c8; }
+        .stats-card-month { background: linear-gradient(180deg, #fbf9ff 0%, #f5f3ff 100%); border-color: #ddd6fe; border-top-color: #8b7bc8; }
+        .stats-side-label { color: inherit; opacity: 0.82; }
+        .pass-summary-wrap { margin-top: 0.75rem; padding-top: 0.75rem; padding-bottom: 0.5rem; }
+        .pass-summary-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem; gap: 0.5rem; }
+        .pass-total-pill { border-radius: 999px; padding: 0.22rem 0.55rem; font-size: 0.65rem; font-weight: 800; white-space: nowrap; }
+        .pass-card { background: rgba(255,255,255,0.86); border: 1px solid rgba(148, 163, 184, 0.24); border-radius: 1rem; padding: 0.75rem; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.045); }
+        .pass-card-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding-bottom: 0.55rem; margin-bottom: 0.55rem; border-bottom: 1px dashed rgba(148, 163, 184, 0.32); }
+        .pass-name-block { min-width: 0; display: flex; align-items: center; gap: 0.45rem; }
+        .pass-avatar { width: 1.65rem; height: 1.65rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 900; flex: 0 0 auto; }
+        .pass-name { font-size: 0.92rem; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pass-qty { border-radius: 999px; padding: 0.2rem 0.5rem; font-size: 0.65rem; font-weight: 900; white-space: nowrap; }
+        .pass-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; }
+        .pass-metric { border-radius: 0.75rem; padding: 0.45rem 0.25rem; text-align: center; }
+        .pass-label { display: block; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 0.12rem; }
+        .pass-value { display: block; font-size: 0.72rem; font-weight: 900; white-space: nowrap; }
+        .pass-year-theme .pass-avatar, .pass-year-theme .pass-qty, .pass-year-theme .pass-metric { background: #f1f5f9; color: #475569; }
+        .pass-year-theme .pass-name { color: #334155; }
+        .pass-year-theme .pass-net .pass-value { color: #334155; }
+        .pass-year-theme .pass-total-pill { background: #f1f5f9; color: #475569; }
+        .pass-month-theme .pass-avatar, .pass-month-theme .pass-qty, .pass-month-theme .pass-metric { background: #f5f3ff; color: #6d5cae; }
+        .pass-month-theme .pass-name { color: #6d5cae; }
+        .pass-month-theme .pass-net .pass-value { color: #7c3aed; }
+        .pass-month-theme .pass-total-pill { background: #ede9fe; color: #6d5cae; }
+        .metric-box-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; }
+        .metric-box { border-radius: 0.95rem; border: 1px solid transparent; padding: 0.55rem 0.45rem; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55); white-space: nowrap; }
+        .metric-box-label { display: block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 0.15rem; }
+        .metric-box-value, .metric-box button { display: inline-block; font-size: 1rem; line-height: 1.1; font-weight: 900; background: transparent; border: none; padding: 0; margin: 0; text-decoration: none; }
+        .metric-box button { cursor: pointer; }
+        .metric-box-rev { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+        .metric-box-exp { background: #fff1f2; border-color: #fecdd3; color: #e11d48; }
+        .metric-box-net { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+        .stats-card-all .metric-box-rev { background: rgba(191, 219, 254, 0.14); border-color: rgba(191, 219, 254, 0.2); color: #dbeafe; }
+        .stats-card-all .metric-box-exp { background: rgba(253, 164, 175, 0.14); border-color: rgba(253, 164, 175, 0.2); color: #fecdd3; }
+        .stats-card-all .metric-box-net { background: rgba(110, 231, 183, 0.15); border-color: rgba(110, 231, 183, 0.22); color: #bbf7d0; }
+        .stats-card-year .metric-box-rev { background: #f8fafc; border-color: #dbe4ef; color: #334155; }
+        .stats-card-year .metric-box-exp { background: #fff1f2; border-color: #fecdd3; color: #e11d48; }
+        .stats-card-year .metric-box-net { background: #eefcf5; border-color: #b7ebd1; color: #047857; }
+        .stats-card-month .metric-box-rev { background: #f5f3ff; border-color: #ddd6fe; color: #6d5cae; }
+        .stats-card-month .metric-box-exp { background: #fff1f2; border-color: #fecdd3; color: #e11d48; }
+        .stats-card-month .metric-box-net { background: #eef2ff; border-color: #c7d2fe; color: #4f46e5; }
+        .pass-metric.pass-net { background: #ecfdf5 !important; border: 1px solid #a7f3d0; color: #047857 !important; }
+        .record-metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; margin-top: 0.2rem; }
+        .record-metric-grid .metric-box { padding: 0.5rem 0.35rem; border-radius: 0.85rem; }
+        .record-metric-grid .metric-box-value { font-size: 0.92rem; }
+        .record-metric-grid .metric-box-label { display: inline !important; margin-right: 4px; margin-bottom: 0 !important; }
+        .record-metric-grid .metric-box-value, .record-metric-grid button { display: inline !important; }
+        .stats-card-all > .flex-1, .stats-card-all .metric-box, .stats-card-all .metric-box-grid > div { min-width: 0; }
+        .metric-box-value, .metric-box button, .pass-value { max-width: 100%; overflow-wrap: anywhere; }
+        .stats-card-month #monthTitle, .stats-card-month .flex.justify-between.items-start > div, .stats-card-month #mCounts, #passSummarySection h3 { color: #6d5cae !important; }
+        #passSummarySection { border-top-color: #ddd6fe !important; background: rgba(255, 255, 255, 0.72) !important; }
+        [class*="shadow"], .stats-card, .pass-card, .metric-box, tr, #assistantSummaryModal, #authPage > div, button { box-shadow: none !important; }
+        .stats-card-all { background: #3f4f66 !important; }
+        .stats-card-year { background: #fbfcfe !important; }
+        .stats-card-month { background: #fbf9ff !important; }
+        .pass-card { background: #ffffff !important; }
+        .metric-box { box-shadow: none !important; }
+        .metric-box-net, .stats-card-all .metric-box-net, .stats-card-year .metric-box-net, .stats-card-month .metric-box-net, .record-metric-grid .metric-box-net { background: #ecfdf5 !important; border-color: #a7f3d0 !important; color: #047857 !important; }
+        .stats-card-all .metric-box-value, .stats-card-all .metric-box button { font-size: 1.08rem; line-height: 1.08; }
+        .pass-summary-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; border: 0; background: transparent; padding: 0; cursor: pointer; text-align: left; }
+        .pass-summary-title-area { min-width: 0; display: flex; align-items: center; gap: 0.25rem; }
+        .pass-summary-actions { display: flex; align-items: center; gap: 0.4rem; flex: 0 0 auto; }
+        .pass-toggle-pill { border-radius: 999px; padding: 0.22rem 0.52rem; font-size: 0.62rem; font-weight: 900; white-space: nowrap; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+        .pass-month-theme .pass-toggle-pill { background: #f5f3ff; color: #6d5cae; border-color: #ddd6fe; }
+        .pass-summary-wrap.pass-collapsed .pass-summary-list { display: none !important; }
+        .pass-summary-list { margin-top: 0.55rem; }
+        .pass-summary-wrap.pass-collapsed { padding-bottom: 0.18rem !important; margin-bottom: -1.05rem !important; }
+        .pass-summary-wrap.pass-collapsed .pass-summary-head { margin-bottom: 0 !important; }
+        #passSummarySection.pass-collapsed, #passYearSummarySection.pass-collapsed { min-height: 0 !important; }
+        .record-metric-grid { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 0 !important; margin-top: 0 !important; padding: 0 !important; border-radius: 0 !important; background: transparent !important; }
+        .record-metric-grid .metric-box { background: transparent !important; border: 0 !important; border-radius: 0 !important; padding: 0 0.35rem 0.4rem !important; box-shadow: none !important; text-align: left !important; }
+        .record-metric-grid .metric-box:not(:last-child) { border-right: 1px solid #e2e8f0 !important; }
+        .record-metric-grid .metric-box-label { font-size: 0.58rem !important; letter-spacing: 0.03em !important; color: #94a3b8 !important; }
+        .record-metric-grid .metric-box-value { font-size: 0.9rem !important; line-height: 1.15 !important; white-space: nowrap !important; }
+        .record-metric-grid .metric-box-rev .metric-box-value { color: #475569 !important; }
+        .record-metric-grid .metric-box-exp .metric-box-value { color: #e11d48 !important; }
+        .record-metric-grid .metric-box-net .metric-box-value { color: #047857 !important; }
+        .note-display { white-space: pre-wrap; word-break: break-all; display: block; line-height: 1.3; }
+        @keyframes highlight-fade { 0% { background-color: #fef08a; transform: scale(1.02); } 100% { background-color: white; transform: scale(1); } }
+        .highlight-target { animation: highlight-fade 2s ease-out; z-index: 10; }
+        thead { display: none; }
+        tr { display: block; margin-bottom: 0.5rem; border-radius: 12px; background: white; padding: 1rem; border: 1px solid #cbd5e1; transition: all 0.3s ease; }
+        td { display: block; width: 100%; padding: 0.15rem 0 !important; border: none !important; text-align: left; color: #334155; }
+        td[data-label="客戶"] { font-weight: 800; font-size: 1.2rem; color: #0f172a; padding-bottom: 0.1rem !important; }
+        td[data-label="金額帳目"] { padding-top: 0.7rem !important; margin-top: 0.7rem; border-top: 2px dashed #cbd5e1 !important; color: #1e293b; font-size: 0.9rem; font-weight: 700; }
+        td.action-cell { border-top: 1px solid #e2e8f0 !important; margin-top: 0.5rem; padding-top: 0.5rem !important; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+        .time-display { font-size: 0.85rem; color: #475569; font-weight: 600; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.25rem !important; margin-bottom: 0.1rem; }
+        @media (min-width: 1024px) { .desktop-half-width { max-width: 50% !important; margin-left: auto; margin-right: auto; } }
+        #assistantSummaryModal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; width: 90%; max-width: 350px; }
+        .lucide { width: 14px; height: 14px; stroke-width: 2; display: inline-block; vertical-align: -2px; }
+        .btn-icon { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+        #floatingUnpaidWrap { position: fixed; bottom: 24px; right: 24px; z-index: 1000; display: flex; flex-direction: column; align-items: flex-end; }
+        .unpaid-badge { background: #f59e0b; color: white; width: 48px; height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 3px solid white; transition: all 0.2s ease; }
+        .unpaid-badge:active { transform: scale(0.9); }
+        .unpaid-count-dot { position: absolute; top: -4px; right: -4px; background: #e11d48; color: white; font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 999px; border: 2px solid white; }
+        .floating-unpaid-list { background: #fff; border: 1px solid #fde68a; border-radius: 1.25rem; padding: 1rem; width: 260px; max-height: 50vh; overflow-y: auto; margin-bottom: 12px; }
+        .floating-unpaid-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px dashed #fef3c7; }
+        .floating-unpaid-item:last-child { border-bottom: none; }
+        .floating-reminder-badges { display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-end; }
+        .floating-reminder-btn { min-width: 72px; height: 42px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 0.3rem; cursor: pointer; border: 3px solid white; transition: all 0.2s ease; font-size: 0.72rem; font-weight: 900; }
+        .floating-reminder-btn:active { transform: scale(0.94); }
+        .floating-pending-btn { background: #10b981; color: white; }
+        .floating-unpaid-btn { background: #f59e0b; color: white; }
+        .floating-reminder-count { background: rgba(255,255,255,0.95); color: #334155; min-width: 1.25rem; height: 1.25rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; padding: 0 0.32rem; font-size: 0.65rem; font-weight: 900; }
+        .floating-reminder-section { padding-top: 0.35rem; }
+        .floating-reminder-section + .floating-reminder-section { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed #e2e8f0; }
+        .floating-reminder-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.45rem; font-size: 0.68rem; font-weight: 900; letter-spacing: 0.08em; }
+        .floating-pending-title { color: #047857; }
+        .floating-unpaid-title { color: #b45309; }
+        .floating-reminder-empty { color: #94a3b8; font-size: 0.75rem; padding: 0.4rem 0; }
+        .filter-summary-head { gap: 0.5rem; }
+        .filter-count-line { white-space: nowrap; }
+        .date-filter-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; align-items: end; }
+        .clear-filter-row { display: flex; }
+        @media (max-width: 640px) {
+            .filter-summary-head { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 0.28rem !important; }
+            .filter-summary-head #monthTitle { line-height: 1.35 !important; word-break: break-word !important; }
+            .filter-count-line { width: 100% !important; font-size: 0.68rem !important; line-height: 1.35 !important; white-space: normal !important; }
+            .date-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
+            .date-filter-row input[type="date"] { font-size: 0.72rem !important; padding-left: 0.45rem !important; padding-right: 0.35rem !important; }
+            .clear-filter-row button { width: 100% !important; }
+            .filter-toggle-status { max-width: 62vw; }
+            .filter-shell { margin-bottom: 0.75rem !important; }
+        }
+        .filter-shell { padding: 0.65rem !important; }
+        .filter-toggle-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; border: 0; background: #f8fafc; border-radius: 1rem; padding: 0.75rem 0.85rem; color: #475569; text-align: left; }
+        .filter-toggle-left { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+        .filter-toggle-title { font-size: 0.85rem; font-weight: 900; color: #334155; white-space: nowrap; }
+        .filter-toggle-status { display: block; margin-top: 0.1rem; font-size: 0.68rem; font-weight: 700; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+        .filter-toggle-right { display: flex; align-items: center; gap: 0.35rem; flex: 0 0 auto; font-size: 0.72rem; font-weight: 900; color: #64748b; }
+        .filter-panel { margin-top: 0.75rem; }
+        .filter-shell.filter-collapsed .filter-panel { display: none !important; }
+        .filter-shell.filter-collapsed .filter-chevron { transform: rotate(0deg); }
+        .filter-shell:not(.filter-collapsed) .filter-chevron { transform: rotate(180deg); }
+        .filter-chevron { transition: transform 0.2s ease; }
+        .car-svc-label { cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 700; color: #334155; }
+        .car-svc-checkbox { accent-color: #3b82f6; width: 1.1rem; height: 1.1rem; cursor: pointer; }
+    </style>
+</head>
+<body class="bg-[#faf9f6] min-h-screen text-slate-700 transition-colors duration-300">
+    <section id="authPage" class="fixed inset-0 z-[100] bg-slate-100 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-3xl border border-slate-200 w-full max-w-sm text-center">
+            <div class="w-16 h-16 bg-slate-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i data-lucide="lock" class="text-white w-8 h-8"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">系統登入</h2>
+            <p class="text-slate-400 text-sm mb-8">請使用授權的 Google 帳號進行登入</p>
+            <button onclick="handleLogin()" class="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-700 font-bold py-3.5 px-4 rounded-xl border border-slate-200 transition-all active:scale-95 mb-4">
+                <img src="https://www.gstatic.com/images/branding/googleg/1x/googleg_standard_color_128dp.png" class="w-5 h-5">
+                Google 帳號登入
+            </button>
+            <p id="authError" class="text-rose-500 text-sm font-bold hidden whitespace-pre-wrap"></p>
+        </div>
+    </section>
+    <div id="mainApp" class="hidden">
+        <nav id="mainNav" class="bg-slate-600 text-white py-2 px-4 transition-colors duration-300">
+            <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-2 md:gap-0">
+                <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
+                    <h1 class="text-lg font-bold tracking-widest" id="mainTitle">總計營收</h1>
+                    <div class="bg-slate-700/50 p-1 rounded-lg flex items-center text-xs font-bold border border-slate-500/30">
+                        <button onclick="switchAppMode('ac')" id="navAcBtn" class="px-3 py-1 rounded text-slate-300 hover:text-white transition-all">冷氣</button>
+                        <button onclick="switchAppMode('car')" id="navCarBtn" class="px-3 py-1 rounded text-slate-300 hover:text-white transition-all">汽車</button>
+                        <button onclick="switchAppMode('summary')" id="navSummaryBtn" class="px-3 py-1 rounded bg-slate-500 text-white transition-all">總計</button>
+                    </div>
+                </div>
+                <div class="flex space-x-2 w-full md:w-auto justify-end">
+                    <button onclick="showPage('listPage')" class="flex items-center px-3 py-1.5 bg-slate-500 hover:bg-slate-400 border border-slate-400/50 rounded-lg transition-all text-[0.8rem] font-medium active:scale-95 whitespace-nowrap">
+                        <i data-lucide="list" class="btn-icon"></i>清單
+                    </button>
+                    <button onclick="prepareNewForm()" class="flex items-center px-3 py-1.5 bg-slate-500 hover:bg-slate-400 border border-slate-400/50 rounded-lg transition-all text-[0.8rem] font-medium active:scale-95 whitespace-nowrap">
+                        <i data-lucide="pen-line" class="btn-icon"></i>填寫
+                    </button>
+                    <button onclick="handleLogout()" class="flex items-center px-3 py-1.5 bg-slate-700 hover:bg-rose-600 border border-slate-500 rounded-lg transition-all text-[0.8rem] font-medium active:scale-95 whitespace-nowrap">
+                        <i data-lucide="log-out" class="btn-icon"></i>登出
+                    </button>
+                </div>
+            </div>
+        </nav>
+        <div class="container mx-auto px-1.5 md:px-4 py-6">
+            <section id="formPage" class="hidden max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl border border-slate-100">
+                <h2 class="text-xl font-bold mb-6 text-slate-800 flex items-center gap-2"><i data-lucide="clipboard-list" class="w-6 h-6"></i> 新增紀錄</h2>
+                <form id="recordForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">預約日期時間</label><input type="datetime-local" id="bookingTime" required class="block w-full border-slate-200 rounded-xl p-3 border text-sm outline-none"></div>
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">客戶姓名</label><input type="text" id="customerName" required class="block w-full border-slate-200 rounded-xl p-3 border text-sm outline-none"></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">連絡電話</label><input type="tel" id="phone" class="block w-full border-slate-200 rounded-xl p-3 border text-sm outline-none"></div>
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">施工地址</label><input type="text" id="address" class="block w-full border-slate-200 rounded-xl p-3 border text-sm outline-none"></div>
+                    </div>
+                    <div id="carBasicInfoWrap" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/20 p-4 rounded-xl border border-blue-100/50">
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">廠牌</label><input type="text" id="carBrand" placeholder="例：Toyota" class="block w-full border-slate-200 rounded-xl p-3 border text-sm outline-none"></div>
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">汽車型號</label><input type="text" id="carModel" placeholder="例：Altis" class="block w-full border-slate-200 rounded-xl p-3 border text-sm outline-none"></div>
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">車牌號碼</label><input type="text" id="licensePlate" placeholder="例：ABC-1234" class="block w-full border-slate-200 rounded-xl p-3 border text-sm outline-none"></div>
+                    </div>
+                    <div id="acDetailWrap" class="space-y-4">
+                        <div class="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">冷氣台數</label><input type="number" id="acCount" value="0" min="0" onfocus="this.select()" oninput="handleAcCountChange()" class="w-full rounded-lg p-2 border border-slate-200 text-sm font-bold"></div>
+                            <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">洗衣機</label><input type="number" id="wmCount" value="0" min="0" onfocus="this.select()" class="w-full rounded-lg p-2 border border-slate-200 text-sm font-bold"></div>
+                            <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">水塔</label><input type="number" id="wtCount" value="0" min="0" onfocus="this.select()" class="w-full rounded-lg p-2 border border-slate-200 text-sm font-bold"></div>
+                        </div>
+                        <div id="acBrandSection" class="hidden space-y-2 bg-emerald-50/30 p-4 rounded-xl border border-emerald-100">
+                            <div class="flex justify-between items-center mb-1"><label class="block text-xs font-bold text-emerald-600 uppercase tracking-wider"><i data-lucide="snowflake" class="lucide mr-1"></i> 冷氣明細</label><button type="button" onclick="addAcDetailRow()" class="text-[10px] bg-emerald-600 text-white px-2 py-1 rounded">+ 增加明細</button></div>
+                            <div id="acDetailsContainer" class="space-y-2"></div>
+                        </div>
+                    </div>
+                    <div id="carDetailWrap" class="hidden space-y-4">
+                        <div class="bg-blue-50/30 p-4 rounded-xl border border-blue-100">
+                            <label class="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-2"><i data-lucide="car" class="lucide mr-1"></i> 車種選擇</label>
+                            <select id="carType" class="w-full border-slate-200 rounded-xl p-3 border text-sm outline-none font-bold text-slate-700 bg-white"><option value="轎車">轎車</option><option value="休旅車">休旅車</option><option value="7人座">7人座</option></select>
+                        </div>
+                        <div class="bg-blue-50/30 p-4 rounded-xl border border-blue-100">
+                            <label class="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-3"><i data-lucide="sparkles" class="lucide mr-1"></i> 美容類別 (可複選)</label>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3"><label class="car-svc-label flex-1"><input type="checkbox" id="carSvc_1" value="精緻洗車" class="car-svc-checkbox" onchange="toggleCarPriceInput(1)"> 精緻洗車</label><input type="number" id="carPrice_1" class="hidden w-28 rounded-lg p-2 border border-blue-200 text-sm font-bold text-right" placeholder="輸入金額" oninput="calcCarTotal()" onfocus="this.select()"></div>
+                                <div class="flex items-center gap-3"><label class="car-svc-label flex-1"><input type="checkbox" id="carSvc_2" value="小美容" class="car-svc-checkbox" onchange="toggleCarPriceInput(2)"> 小美容</label><input type="number" id="carPrice_2" class="hidden w-28 rounded-lg p-2 border border-blue-200 text-sm font-bold text-right" placeholder="輸入金額" oninput="calcCarTotal()" onfocus="this.select()"></div>
+                                <div class="flex items-center gap-3"><label class="car-svc-label flex-1"><input type="checkbox" id="carSvc_3" value="大美容" class="car-svc-checkbox" onchange="toggleCarPriceInput(3)"> 大美容</label><input type="number" id="carPrice_3" class="hidden w-28 rounded-lg p-2 border border-blue-200 text-sm font-bold text-right" placeholder="輸入金額" oninput="calcCarTotal()" onfocus="this.select()"></div>
+                                <div class="flex items-center gap-3"><label class="car-svc-label flex-1"><input type="checkbox" id="carSvc_4" value="車內深層清潔" class="car-svc-checkbox" onchange="toggleCarPriceInput(4)"> 車內深層清潔</label><input type="number" id="carPrice_4" class="hidden w-28 rounded-lg p-2 border border-blue-200 text-sm font-bold text-right" placeholder="輸入金額" oninput="calcCarTotal()" onfocus="this.select()"></div>
+                                <div class="flex items-center gap-3"><label class="car-svc-label flex-1"><input type="checkbox" id="carSvc_5" value="玻璃鍍膜" class="car-svc-checkbox" onchange="toggleCarPriceInput(5)"> 玻璃鍍膜</label><input type="number" id="carPrice_5" class="hidden w-28 rounded-lg p-2 border border-blue-200 text-sm font-bold text-right" placeholder="輸入金額" oninput="calcCarTotal()" onfocus="this.select()"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-2 bg-rose-50/30 p-4 rounded-xl border border-rose-100">
+                        <div class="flex justify-between items-center mb-1"><label class="block text-xs font-bold text-rose-600 uppercase tracking-wider"><i data-lucide="users" class="lucide mr-1"></i> 小幫手明細</label><button type="button" onclick="addAssistantRow()" class="text-[10px] bg-rose-500 text-white px-2 py-1 rounded">+ 增加小幫手</button></div>
+                        <div id="assistantDetailsContainer" class="space-y-2"></div>
+                        <div id="quickAssistantTags" class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-rose-100/50"></div>
+                    </div>
+                    <div class="space-y-2 bg-indigo-50/30 p-4 rounded-xl border border-indigo-100">
+                        <div class="flex justify-between items-center mb-1"><label class="block text-xs font-bold text-indigo-600 uppercase tracking-wider"><i data-lucide="forward" class="lucide mr-1"></i> PASS 案件設定</label></div>
+                        <div class="flex gap-2"><input type="text" id="passFrom" list="passNamesList" placeholder="輸入 PASS 來源對象名稱" class="flex-1 rounded-lg p-2 border border-indigo-100 text-sm" oninput="updateQuickPassTags()"></div>
+                        <div id="quickPassTags" class="flex flex-wrap gap-2 mt-2 pt-2 border-t border-indigo-100/50"></div>
+                    </div>
+                    <datalist id="assistantNamesList"></datalist><datalist id="passNamesList"></datalist>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-100">
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase mb-1">總收費</label><input type="number" id="totalAmount" required onfocus="this.select()" oninput="calcFormNet()" class="w-full border-slate-200 rounded-xl p-3 border font-bold"></div>
+                        <div><label class="block text-xs font-bold text-slate-400 uppercase mb-1">小幫手總支出</label><input type="number" id="assistantPay" value="0" readonly class="w-full bg-slate-50 border-slate-200 rounded-xl p-3 border font-bold text-rose-500"></div>
+                        <div><label class="block text-xs font-bold text-emerald-600 uppercase mb-1">預估淨利</label><input type="text" id="formNetProfit" value="$0" readonly class="w-full bg-emerald-50 border-emerald-100 rounded-xl p-3 border font-bold text-emerald-700"></div>
+                    </div>
+                    <div><label class="block text-xs font-bold text-slate-400 uppercase mb-1">其他備註</label><textarea id="note" rows="3" class="w-full border-slate-200 rounded-xl p-3 border text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none"></textarea></div>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="showPage('listPage')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-xl transition-all active:scale-[0.98] border border-slate-200/50">返回清單</button>
+                        <button type="submit" class="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98]">確認儲存紀錄</button>
+                    </div>
+                </form>
+            </section>
+            <section id="listPage" class="desktop-half-width">
+                <div class="stats-card stats-card-all p-4 text-white flex items-center mb-4 relative">
+                    <div class="stats-side-label flex flex-col text-[10px] font-bold uppercase tracking-widest mr-4 border-r border-white/15 pr-3 text-center leading-tight"><span>全</span><span>部</span><span>年</span><span>份</span><span>總</span><span>累</span><span>計</span></div>
+                    <div class="flex-1">
+                        <div id="allCountsGrid" class="grid grid-cols-3 gap-2 text-center border-b border-white/10 pb-2 mb-2">
+                            <div><p class="text-[10px] text-white/65" id="statsLabel1">冷氣</p><p class="text-xl font-bold" id="allAc">0</p></div>
+                            <div><p class="text-[10px] text-white/65" id="statsLabel2">洗衣機</p><p class="text-xl font-bold" id="allWm">0</p></div>
+                            <div><p class="text-[10px] text-white/65" id="statsLabel3">水塔</p><p class="text-xl font-bold" id="allWt">0</p></div>
+                        </div>
+                        <div class="metric-box-grid">
+                            <div class="metric-box metric-box-rev"><span class="metric-box-label">總收入</span><span class="metric-box-value" id="allRev">$0</span></div>
+                            <div class="metric-box metric-box-exp"><span class="metric-box-label">小幫手</span><button onclick="showAllAssistantDetails()" id="allExp">$0</button></div>
+                            <div class="metric-box metric-box-net"><span class="metric-box-label">淨實收</span><span class="metric-box-value" id="allNet">$0</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="procurementSection" class="mb-4 stats-card bg-[#fffbeb] border-[#fde68a] border-t-[4px] p-4 rounded-3xl relative overflow-hidden hidden">
+                    <div class="absolute -right-4 -top-4 opacity-10 pointer-events-none"><i data-lucide="shopping-bag" class="w-24 h-24 text-amber-500"></i></div>
+                    <div class="flex justify-between items-center mb-3 relative z-10"><h3 id="procurementTitle" class="text-amber-800 text-[11px] font-bold uppercase tracking-widest flex items-center gap-1"><i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i> 採購預算與實際收入</h3><button id="manageProcBtn" onclick="toggleProcurementModal()" class="text-[10px] bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1.5 rounded-lg font-bold">管理明細</button></div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 relative z-10">
+                        <div class="bg-white/60 p-2 rounded-xl text-center border border-amber-200/50"><span id="budgetPctWrap" class="flex justify-center items-center text-[10px] font-bold text-amber-700/70 mb-0.5">預算上限(<input type="number" id="budgetPercent" value="10" min="0" max="100" oninput="updateBudgetPct(this.value)" class="w-5 bg-transparent border-b border-amber-400/50 text-center outline-none font-black text-amber-800 p-0 mx-0.5 leading-none">%)</span><span class="block text-sm font-black text-amber-600" id="procBudget">$0</span></div>
+                        <div class="bg-white/60 p-2 rounded-xl text-center border border-amber-200/50"><span class="block text-[10px] font-bold text-amber-700/70 mb-0.5">已採購金額</span><span class="block text-sm font-black text-rose-500" id="procSpent">$0</span></div>
+                        <div class="bg-white/60 p-2 rounded-xl text-center border border-amber-200/50"><span class="block text-[10px] font-bold text-amber-700/70 mb-0.5">剩餘預算</span><span class="block text-sm font-black text-emerald-600" id="procRemain">$0</span></div>
+                        <div class="bg-blue-50/80 p-2 rounded-xl text-center border border-blue-200/50"><span class="block text-[10px] font-bold text-blue-700/70 mb-0.5">實際淨收入</span><span class="block text-sm font-black text-blue-700" id="actualNet">$0</span></div>
+                    </div>
+                </div>
+                <div id="assistantSummaryOverlay" onclick="toggleAssistantModal()" class="hidden fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[90]"></div>
+                <div id="assistantSummaryModal" class="hidden bg-white rounded-2xl p-5 border border-slate-200">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h4 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i data-lucide="handshake" class="w-4 h-4"></i> <span id="assistantModalTitle">小幫手薪資總計 (全期)</span></h4><button onclick="toggleAssistantModal()" class="text-slate-400 text-xl">&times;</button></div>
+                    <div id="assistantSummaryList" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1"></div>
+                </div>
+                <div id="procurementOverlay" onclick="toggleProcurementModal()" class="hidden fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[90]"></div>
+                <div id="procurementModal" class="hidden fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-5 border border-slate-200 z-[100] w-[95%] max-w-md max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h4 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i data-lucide="shopping-cart" class="w-4 h-4 text-amber-500"></i> 採購明細管理</h4><button onclick="toggleProcurementModal()" class="text-slate-400 text-xl">&times;</button></div>
+                    <form id="procForm" onsubmit="addProcurement(event)" class="bg-amber-50/50 p-3 rounded-xl border border-amber-100 mb-4">
+                        <div class="grid grid-cols-2 gap-2 mb-2"><div><label class="text-[10px] font-bold text-amber-700/70">日期</label><input type="date" id="procDate" required class="w-full text-sm p-1.5 border border-amber-200 rounded"></div><div><label class="text-[10px] font-bold text-amber-700/70">品項</label><input type="text" id="procItem" required class="w-full text-sm p-1.5 border border-amber-200 rounded"></div></div>
+                        <div class="grid grid-cols-3 gap-2 mb-3"><div><label class="text-[10px] font-bold text-amber-700/70">數量</label><input type="number" id="procQty" required min="1" value="1" class="w-full text-sm p-1.5 border border-amber-200 rounded" oninput="calcProcAmount()"></div><div><label class="text-[10px] font-bold text-amber-700/70">單價</label><input type="number" id="procPrice" required min="0" class="w-full text-sm p-1.5 border border-amber-200 rounded" oninput="calcProcAmount()"></div><div><label class="text-[10px] font-bold text-amber-700/70">總金額</label><input type="number" id="procAmount" readonly class="w-full text-sm p-1.5 border border-amber-200 rounded font-bold text-rose-500"></div></div>
+                        <button type="submit" class="w-full bg-amber-500 text-white font-bold py-2 rounded-lg text-sm">新增採購明細</button>
+                    </form>
+                    <div id="procList" class="space-y-2"></div>
+                </div>
+                <div class="space-y-3 mb-4">
+                    <div class="stats-card stats-card-year p-5">
+                        <div class="flex justify-between items-start"><h3 class="text-slate-500 text-[10px] font-bold uppercase tracking-widest" id="yearTitle">年度統計</h3><div id="yCountsGroup" class="text-[10px] text-slate-400">年度數量: <span class="text-slate-700 font-bold" id="yCounts">冷0 / 洗0 / 水0</span></div></div>
+                        <div class="metric-box-grid mt-3"><div class="metric-box metric-box-rev"><span class="metric-box-label">年度總營收</span><span class="metric-box-value" id="yRev">$0</span></div><div class="metric-box metric-box-exp"><span class="metric-box-label">年度支出</span><button onclick="showYearAssistantDetails()" id="yExp">$0</button></div><div class="metric-box metric-box-net"><span class="metric-box-label">年度淨利</span><span class="metric-box-value" id="yNet">$0</span></div></div>
+                        <div id="passYearSummarySection" class="pass-summary-wrap pass-year-theme pass-collapsed border-t border-slate-200 bg-slate-50/70 -mx-5 px-3 hidden"><button type="button" class="pass-summary-head" onclick="togglePassSummary('passYearSummarySection')"><span class="pass-summary-title-area"><h3 class="text-slate-600 text-[10px] font-bold uppercase flex items-center gap-1"><i data-lucide="forward" class="w-3 h-3"></i> PASS 來源統計 (年度)</h3></span><span class="pass-summary-actions"><span class="pass-total-pill" id="passYearTotal">總額 $0</span><span class="pass-toggle-pill"><span class="pass-toggle-text">展開</span></span></span></button><div id="passYearSummaryList" class="pass-summary-list grid grid-cols-1 gap-2"></div></div>
+                    </div>
+                    <div class="stats-card stats-card-month p-5">
+                        <div class="filter-summary-head flex justify-between items-start"><h3 class="text-emerald-600 text-[10px] font-bold uppercase tracking-widest" id="monthTitle">本月統計</h3><div id="mCountsGroup" class="filter-count-line text-[10px] text-emerald-700/70"><span id="mCountsLabel">月度數量</span>: <span class="text-emerald-800 font-bold" id="mCounts">冷0 / 洗0 / 水0</span></div></div>
+                        <div class="metric-box-grid mt-3"><div class="metric-box metric-box-rev"><span class="metric-box-label" id="mRevLabel">本月總營收</span><span class="metric-box-value" id="mRev">$0</span></div><div class="metric-box metric-box-exp"><span class="metric-box-label" id="mExpLabel">本月支出</span><button onclick="showMonthAssistantDetails()" id="mExp">$0</button></div><div class="metric-box metric-box-net"><span class="metric-box-label" id="mNetLabel">本月淨利</span><span class="metric-box-value" id="mNet">$0</span></div></div>
+                        <div id="passSummarySection" class="pass-summary-wrap pass-month-theme pass-collapsed border-t border-emerald-100 bg-white/65 -mx-5 px-3 hidden"><button type="button" class="pass-summary-head" onclick="togglePassSummary('passSummarySection')"><span class="pass-summary-title-area"><h3 class="text-emerald-700 text-[10px] font-bold uppercase flex items-center gap-1"><i data-lucide="forward" class="w-3 h-3"></i> <span id="passFilteredTitle">PASS 來源統計 (月度)</span></h3></span><span class="pass-summary-actions"><span class="pass-total-pill" id="passMonthTotal">總額 $0</span><span class="pass-toggle-pill"><span class="pass-toggle-text">展開</span></span></span></button><div id="passSummaryList" class="pass-summary-list grid grid-cols-1 gap-2"></div></div>
+                    </div>
+                </div>
+                <div id="filterShell" class="filter-shell filter-collapsed bg-white rounded-2xl border border-slate-100 mb-6">
+                    <button type="button" onclick="toggleFilterPanel()" class="filter-toggle-btn"><span class="filter-toggle-left"><i data-lucide="sliders-horizontal" class="w-4 h-4 text-slate-500 flex-none"></i><span class="min-w-0"><span class="filter-toggle-title">篩選條件</span><span id="filterStatusText" class="filter-toggle-status">目前：本月份</span></span></span><span class="filter-toggle-right"><span class="filter-toggle-word">展開</span><i data-lucide="chevron-down" class="filter-chevron w-4 h-4"></i></span></button>
+                    <div id="filterPanel" class="filter-panel space-y-4">
+                        <div class="flex flex-col gap-3"><input type="text" id="searchKeyword" oninput="filterRecords()" placeholder="可輸入多個關鍵字" class="w-full bg-slate-50 rounded-xl p-3 text-sm outline-none"><div class="date-filter-row"><div><label class="block text-[10px] font-bold text-slate-400 uppercase">起始日期</label><input type="date" id="dateStartFilter" onchange="filterRecords()" class="w-full bg-slate-50 rounded-xl p-2.5 text-sm outline-none"></div><div><label class="block text-[10px] font-bold text-slate-400 uppercase">結束日期</label><input type="date" id="dateEndFilter" onchange="filterRecords()" class="w-full bg-slate-50 rounded-xl p-2.5 text-sm outline-none"></div></div></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2"><div id="typeFilterGroup" class="flex gap-1 bg-slate-50 rounded-xl p-1"></div><div id="statusFilterGroup" class="flex gap-1 bg-slate-50 rounded-xl p-1"><button type="button" onclick="setStatusFilter('all', this)" class="status-btn flex-1 rounded-lg text-[10px] font-bold bg-slate-200 text-slate-700">全部進度</button><button type="button" onclick="setStatusFilter('completed', this)" class="status-btn flex-1 rounded-lg text-[10px] font-bold text-slate-400">已完成</button><button type="button" onclick="setStatusFilter('pending', this)" class="status-btn flex-1 rounded-lg text-[10px] font-bold text-slate-400">待處理</button></div></div>
+                        <div class="clear-filter-row"><button onclick="clearAllFilters()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2.5 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1"><i data-lucide="rotate-ccw" class="w-4 h-4"></i>清除全部篩選</button></div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto"><table class="min-w-full text-sm"><tbody id="recordList"></tbody></table></div>
+            </section>
+        </div>
+        <div id="floatingUnpaidWrap" class="hidden">
+            <div id="floatingUnpaidList" class="floating-unpaid-list hidden"><h5 class="text-[11px] font-bold text-slate-700 uppercase flex justify-between"><span>提醒明細 (全系統)</span><button onclick="toggleFloatingUnpaid()" class="text-slate-400 font-bold">&times;</button></h5><div class="floating-reminder-section"><div class="floating-reminder-title floating-pending-title"><span>未完成</span><span id="pendingSectionCount">0 筆</span></div><div id="floatingPendingItems" class="space-y-1.5"></div></div><div class="floating-reminder-section"><div class="floating-reminder-title floating-unpaid-title"><span>待收款</span><span id="unpaidSectionCount">0 筆</span></div><div id="floatingUnpaidItems" class="space-y-1.5"></div></div></div>
+            <button onclick="toggleFloatingUnpaid()" class="unpaid-badge relative"><i data-lucide="alert-circle" class="w-6 h-6"></i><span id="unpaidCountBadge" class="unpaid-count-dot">0</span></button>
+        </div>
+    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+        const firebaseConfig = {
+            apiKey: "AIzaSyDTyt_nIV1h_MFRhQoT9PHFMXhus1jQVL4",
+            projectId: "ac-records-b8c40",
+            authDomain: "ac-records-b8c40.firebaseapp.com",
+            storageBucket: "ac-records-b8c40.firebasestorage.app",
+            messagingSenderId: "471993362594",
+            appId: "1:471993362594:web:1be7e72af1021760c64ffb"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+        
+        let currentAppMode = 'summary';
+        let budgetPctData = { ac: 10, car: 10, summary: 10 };
+        let unsubAc = null, unsubCar = null, unsubProc = null, unsubProcAc = null, unsubProcCar = null, unsubSettings = null;
+        let dataAc = [], dataCar = [], dataProc = [], allRecords = [], editingId = null;
+        let knownAssistantNames = [], knownPassNames = [], currentYearRecords = [], currentMonthRecords = [];
+        let currentStatusFilter = 'all', currentTypeFilter = 'all';
+        const allowedEmails = ['eroraror@gmail.com', 'graceyiyo@gmail.com'];
+
+        document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
+
+        window.updateBudgetPct = async (val) => {
+            if(currentAppMode !== 'summary') {
+                budgetPctData[currentAppMode] = parseInt(val) || 0;
+                filterRecords();
+                try {
+                    let baseName = 'systemSettings';
+                    if (!allowedEmails.includes((auth.currentUser?.email || '').toLowerCase())) baseName += "_" + auth.currentUser.uid;
+                    await setDoc(doc(db, baseName, 'budget'), budgetPctData, { merge: true });
+                } catch (err) {}
+            }
+        };
+
+        window.switchAppMode = (mode) => {
+            if (currentAppMode === mode) return;
+            currentAppMode = mode;
+            const btnClasses = 'px-3 py-1 rounded bg-slate-500 text-white shadow-sm transition-all';
+            const btnClassesOff = 'px-3 py-1 rounded text-slate-300 hover:text-white transition-all';
+            document.getElementById('navAcBtn').className = mode === 'ac' ? btnClasses : btnClassesOff;
+            document.getElementById('navCarBtn').className = mode === 'car' ? btnClasses : btnClassesOff;
+            document.getElementById('navSummaryBtn').className = mode === 'summary' ? btnClasses : btnClassesOff;
+            const titles = { ac: '冷氣清洗紀錄', car: '汽車清洗紀錄', summary: '總計營收' };
+            document.getElementById('mainTitle').innerText = titles[mode];
+            document.title = titles[mode];
+            const navEl = document.getElementById('mainNav');
+            if (mode === 'car') {
+                document.body.classList.replace('bg-[#faf9f6]', 'bg-slate-100');
+                navEl.classList.replace('bg-slate-600', 'bg-sky-800');
+            } else {
+                document.body.classList.replace('bg-slate-100', 'bg-[#faf9f6]');
+                navEl.classList.replace('bg-sky-800', 'bg-slate-600');
+            }
+            document.getElementById('carBasicInfoWrap').classList.toggle('hidden', mode !== 'car');
+            document.getElementById('acDetailWrap').classList.toggle('hidden', mode !== 'ac');
+            document.getElementById('carDetailWrap').classList.toggle('hidden', mode !== 'car');
+            const isSummary = mode === 'summary';
+            document.querySelectorAll('.btn-icon').forEach(el => {
+                if(el.parentElement.innerText.includes('填寫')) el.parentElement.classList.toggle('hidden', isSummary);
+            });
+            if(isSummary) showPage('listPage');
+            document.getElementById('procurementSection').classList.remove('hidden');
+            const manageBtn = document.getElementById('manageProcBtn');
+            if (manageBtn) manageBtn.classList.toggle('hidden', isSummary);
+            document.getElementById('procurementTitle').innerHTML = `<i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i> 採購預算與實際收入 (${isSummary ? '雙系統合併' : (mode === 'ac' ? '冷氣' : '汽車')+'專屬'})`;
+            document.getElementById('allCountsGrid').classList.toggle('hidden', isSummary);
+            document.getElementById('yCountsGroup').classList.toggle('hidden', isSummary);
+            document.getElementById('mCountsGroup').classList.toggle('hidden', isSummary);
+            document.getElementById('searchKeyword').parentElement.classList.toggle('hidden', isSummary);
+            document.getElementById('typeFilterGroup').parentElement.classList.toggle('hidden', isSummary);
+            document.querySelector('.overflow-x-auto').classList.toggle('hidden', isSummary);
+            if (mode === 'ac') {
+                document.getElementById('statsLabel1').innerText = '冷氣'; document.getElementById('statsLabel2').innerText = '洗衣機'; document.getElementById('statsLabel3').innerText = '水塔';
+                document.getElementById('typeFilterGroup').innerHTML = `<button type="button" onclick="setTypeFilter('all', this)" class="type-btn flex-1 rounded-lg text-[10px] font-bold bg-slate-200 text-slate-700">全部品項</button><button type="button" onclick="setTypeFilter('ac', this)" class="type-btn flex-1 rounded-lg text-[10px] font-bold text-slate-400">冷氣</button><button type="button" onclick="setTypeFilter('wm', this)" class="type-btn flex-1 rounded-lg text-[10px] font-bold text-slate-400">洗衣機</button><button type="button" onclick="setTypeFilter('wt', this)" class="type-btn flex-1 rounded-lg text-[10px] font-bold text-slate-400">水塔</button>`;
+            } else if (mode === 'car') {
+                document.getElementById('statsLabel1').innerText = '轎車'; document.getElementById('statsLabel2').innerText = '休旅車'; document.getElementById('statsLabel3').innerText = '7人座';
+                document.getElementById('typeFilterGroup').innerHTML = `<button type="button" onclick="setTypeFilter('all', this)" class="type-btn flex-1 rounded-lg text-[10px] font-bold bg-slate-200 text-slate-700">全部品項</button><button type="button" onclick="setTypeFilter('轎車', this)" class="type-btn flex-1 rounded-lg text-[10px] font-bold text-slate-400">轎車</button><button type="button" onclick="setTypeFilter('休旅車', this)" class="type-btn flex-1 rounded-lg text-[10px] font-bold text-slate-400">休旅車</button><button type="button" onclick="setTypeFilter('7人座', this)" class="type-btn flex-1 rounded-lg text-[10px] font-bold text-slate-400">7人座</button>`;
+            }
+            currentTypeFilter = 'all'; currentStatusFilter = 'all';
+            const sk = document.getElementById('searchKeyword'); if(sk) sk.value = "";
+            document.getElementById('recordList').innerHTML = '';
+            dataAc = []; dataCar = []; dataProc = []; allRecords = [];
+            startDataSubscription();
+            const pctWrap = document.getElementById('budgetPctWrap');
+            if (isSummary) pctWrap.innerHTML = '預算上限(合併)';
+            else pctWrap.innerHTML = `預算上限(<input type="number" id="budgetPercent" value="${budgetPctData[mode] !== undefined ? budgetPctData[mode] : 10}" min="0" max="100" oninput="updateBudgetPct(this.value)" class="w-5 bg-transparent border-b border-amber-400/50 text-center outline-none font-black text-amber-800 p-0 mx-0.5 leading-none">%)`;
+            if (!document.getElementById('formPage').classList.contains('hidden') && !isSummary) prepareNewForm();
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('authPage').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('authError').classList.add('hidden');
+                let initMode = currentAppMode; currentAppMode = null; switchAppMode(initMode);
+            } else {
+                document.getElementById('authPage').classList.remove('hidden');
+                document.getElementById('mainApp').classList.add('hidden');
+                if (unsubAc) { unsubAc(); unsubAc = null; }
+                if (unsubCar) { unsubCar(); unsubCar = null; }
+                if (unsubProc) { unsubProc(); unsubProc = null; }
+                if (window.unsubProcAc) { window.unsubProcAc(); window.unsubProcAc = null; }
+                if (window.unsubProcCar) { window.unsubProcCar(); window.unsubProcCar = null; }
+                if (unsubSettings) { unsubSettings(); unsubSettings = null; }
+            }
+            lucide.createIcons();
+        });
+
+        window.handleLogin = async () => {
+            const errorEl = document.getElementById('authError');
+            errorEl.classList.add('hidden');
+            const ua = navigator.userAgent || navigator.vendor || window.opera;
+            if (ua.indexOf("Line") > -1 || ua.indexOf("FBAV") > -1 || ua.indexOf("Instagram") > -1) {
+                errorEl.innerText = "⚠️ 偵測到內建瀏覽器！\n\nLINE/FB 會阻擋 Google 登入驗證。請選擇「以預設瀏覽器開啟」(Safari 或 Chrome) 後再重新登入。";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            if (window !== window.top) {
+                errorEl.innerText = "⚠️ 偵測到預覽框架！\n\n由於瀏覽器安全限制，無法在預覽視窗中登入。\n請點擊右上方「New Tab (在新分頁開啟)」圖示，在新分頁中開啟即可登入。";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            try { await signInWithPopup(auth, provider); } 
+            catch (error) { errorEl.innerText = `⚠️ 登入失敗！\n錯誤代碼: ${error.code}\n請改用 Safari / Chrome 開啟此網頁。`; errorEl.classList.remove('hidden'); }
+        };
+
+        window.handleLogout = () => { if (confirm('確定要登出嗎？')) signOut(auth); };
+        function startDataSubscription() {
+            if (unsubAc) { unsubAc(); unsubAc = null; }
+            if (unsubCar) { unsubCar(); unsubCar = null; }
+            if (unsubProc) { unsubProc(); unsubProc = null; }
+            if (window.unsubProcAc) { window.unsubProcAc(); window.unsubProcAc = null; }
+            if (window.unsubProcCar) { window.unsubProcCar(); window.unsubProcCar = null; }
+            if (unsubSettings) { unsubSettings(); unsubSettings = null; }
+            const getCol = (type) => collection(db, (type === 'car' ? 'carRecords' : 'cleaningRecords') + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid));
+            const getProcCol = (type) => collection(db, (type === 'ac' ? 'acProcurementRecords' : 'carProcurementRecords') + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid));
+            unsubSettings = onSnapshot(doc(db, 'systemSettings' + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid), 'budget'), (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    budgetPctData.ac = data.ac !== undefined ? data.ac : 10; budgetPctData.car = data.car !== undefined ? data.car : 10;
+                    const pctInput = document.getElementById('budgetPercent');
+                    if (pctInput && currentAppMode !== 'summary' && parseInt(pctInput.value) !== budgetPctData[currentAppMode]) pctInput.value = budgetPctData[currentAppMode];
+                    filterRecords();
+                }
+            });
+            if (currentAppMode === 'ac' || currentAppMode === 'summary') unsubAc = onSnapshot(getCol('ac'), snap => { dataAc = snap.docs.map(d => ({ id: d.id, _type: 'ac', ...d.data() })); combineAndFilter(); });
+            if (currentAppMode === 'car' || currentAppMode === 'summary') unsubCar = onSnapshot(getCol('car'), snap => { dataCar = snap.docs.map(d => ({ id: d.id, _type: 'car', ...d.data() })); combineAndFilter(); });
+            if (currentAppMode === 'summary') {
+                let tempAc = [], tempCar = [];
+                window.unsubProcAc = onSnapshot(getProcCol('ac'), snap => { tempAc = snap.docs.map(d => ({ id: d.id, ...d.data() })); dataProc = [...tempAc, ...tempCar]; combineAndFilter(); });
+                window.unsubProcCar = onSnapshot(getProcCol('car'), snap => { tempCar = snap.docs.map(d => ({ id: d.id, ...d.data() })); dataProc = [...tempAc, ...tempCar]; combineAndFilter(); });
+            } else unsubProc = onSnapshot(getProcCol(currentAppMode), snap => { dataProc = snap.docs.map(d => ({ id: d.id, ...d.data() })); combineAndFilter(); });
+        }
+
+        function combineAndFilter() {
+            if (currentAppMode === 'ac') allRecords = [...dataAc];
+            else if (currentAppMode === 'car') allRecords = [...dataCar];
+            else if (currentAppMode === 'summary') allRecords = [...dataAc, ...dataCar];
+            if (!document.getElementById('procurementModal')?.classList.contains('hidden')) renderProcList();
+            updateDatalists(); filterRecords();
+        }
+
+        const formatLocalDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        document.getElementById('dateStartFilter').value = formatLocalDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+        document.getElementById('dateEndFilter').value = formatLocalDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+
+        window.showPage = (id) => { document.getElementById('formPage').classList.toggle('hidden', id !== 'formPage'); document.getElementById('listPage').classList.toggle('hidden', id !== 'listPage'); lucide.createIcons(); };
+        window.prepareNewForm = () => {
+            editingId = null; document.getElementById('recordForm').reset(); document.getElementById('acDetailsContainer').innerHTML = ''; document.getElementById('assistantDetailsContainer').innerHTML = ''; document.getElementById('passFrom').value = ''; document.getElementById('formNetProfit').value = '$0';
+            document.getElementById('carModel').value = '';
+            for (let i = 1; i <= 5; i++) { document.getElementById(`carPrice_${i}`).classList.add('hidden'); document.getElementById(`carPrice_${i}`).value = ''; }
+            if (currentAppMode === 'ac') toggleAcBrand();
+            updateQuickAssistantTags(); updateQuickPassTags(); showPage('formPage');
+        };
+
+        window.toggleProcurementModal = () => {
+            const modal = document.getElementById('procurementModal'); const overlay = document.getElementById('procurementOverlay');
+            if (modal.classList.contains('hidden')) { document.getElementById('procDate').value = formatLocalDate(new Date()); renderProcList(); modal.classList.remove('hidden'); overlay.classList.remove('hidden'); } 
+            else { modal.classList.add('hidden'); overlay.classList.add('hidden'); } lucide.createIcons();
+        };
+        window.calcProcAmount = () => { document.getElementById('procAmount').value = (parseInt(document.getElementById('procQty').value) || 0) * (parseInt(document.getElementById('procPrice').value) || 0); };
+        window.addProcurement = async (e) => {
+            e.preventDefault();
+            const docData = { date: document.getElementById('procDate').value, item: document.getElementById('procItem').value, qty: parseInt(document.getElementById('procQty').value) || 0, price: parseInt(document.getElementById('procPrice').value) || 0, amount: parseInt(document.getElementById('procAmount').value) || 0, createdAt: new Date().toISOString() };
+            try { await addDoc(collection(db, (currentAppMode === 'ac' ? 'acProcurementRecords' : 'carProcurementRecords') + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid)), docData); document.getElementById('procForm').reset(); document.getElementById('procDate').value = formatLocalDate(new Date()); } catch (err) { alert('新增失敗：' + err.message); }
+        };
+        window.deleteProcurement = async (id) => { if(confirm('確定要刪除？')) await deleteDoc(doc(db, (currentAppMode === 'ac' ? 'acProcurementRecords' : 'carProcurementRecords') + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid), id)); };
+        function renderProcList() {
+            const list = document.getElementById('procList');
+            if (dataProc.length === 0) { list.innerHTML = '<p class="text-center text-slate-400 py-4 text-sm">尚無採購紀錄</p>'; return; }
+            list.innerHTML = [...dataProc].sort((a,b) => b.date.localeCompare(a.date)).map(p => `<div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100"><div class="flex-1 min-w-0"><div class="text-[10px] text-slate-400">${p.date}</div><div class="font-bold text-slate-700 text-sm truncate">${p.item} <span class="text-xs font-normal text-slate-500 ml-1">${p.qty}x$${p.price}</span></div></div><div class="flex items-center gap-3"><span class="font-black text-rose-500">$${(p.amount||0).toLocaleString()}</span><button onclick="deleteProcurement('${p.id}')" class="text-rose-400 p-1 hover:bg-rose-100 rounded"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button></div></div>`).join('');
+            lucide.createIcons();
+        }
+
+        window.toggleCarPriceInput = (idx) => { const cb = document.getElementById(`carSvc_${idx}`); const input = document.getElementById(`carPrice_${idx}`); if (cb.checked) { input.classList.remove('hidden'); input.focus(); } else { input.classList.add('hidden'); input.value = ''; } calcCarTotal(); };
+        window.calcCarTotal = () => { let total = 0; for (let i = 1; i <= 5; i++) { if (document.getElementById(`carSvc_${i}`).checked) total += (parseInt(document.getElementById(`carPrice_${i}`).value) || 0); } document.getElementById('totalAmount').value = total; calcFormNet(); };
+        window.handleAcCountChange = () => { if (currentAppMode !== 'ac') return; toggleAcBrand(); if ((parseInt(document.getElementById('acCount').value) || 0) > 0 && document.getElementById('acDetailsContainer').children.length === 0) addAcDetailRow(); };
+        window.toggleAcBrand = () => { document.getElementById('acBrandSection').classList.toggle('hidden', document.getElementById('acCount').value <= 0); lucide.createIcons(); };
+        window.addAcDetailRow = (val = "") => {
+            const container = document.getElementById('acDetailsContainer'); const totalTarget = parseInt(document.getElementById('acCount').value) || 0;
+            if (val === "" && totalTarget > 0) { let currentFilled = 0; document.querySelectorAll('.ac-qty-input').forEach(input => currentFilled += (parseInt(input.value) || 0)); val = Math.max(0, totalTarget - currentFilled); }
+            const div = document.createElement('div'); div.className = "grid grid-cols-12 gap-2 items-center ac-detail-row mb-2"; div.innerHTML = `<div class="col-span-5"><input type="text" placeholder="廠牌" class="ac-brand-input w-full rounded-lg p-2 border border-emerald-100 text-sm"></div><div class="col-span-3"><input type="number" value="${val}" oninput="calcTotalFromDetails()" class="ac-qty-input w-full rounded-lg p-2 border border-emerald-100 text-sm font-bold"></div><div class="col-span-3"><input type="number" placeholder="單價" oninput="calcTotalFromDetails()" class="ac-price-input w-full rounded-lg p-2 border border-emerald-100 text-sm"></div><div class="col-span-1 text-center"><button type="button" onclick="this.parentElement.parentElement.remove(); calcTotalFromDetails();" class="text-rose-400 font-bold text-lg">&times;</button></div>`;
+            container.appendChild(div);
+        };
+        window.calcTotalFromDetails = () => {
+            if (currentAppMode !== 'ac') return; let total = 0;
+            document.querySelectorAll('.ac-detail-row').forEach(row => total += (parseInt(row.querySelector('.ac-qty-input').value) || 0) * (parseInt(row.querySelector('.ac-price-input').value) || 0));
+            if (total > 0) { document.getElementById('totalAmount').value = total; calcFormNet(); }
+        };
+        window.addAssistantRow = (name = "", amount = "") => {
+            const container = document.getElementById('assistantDetailsContainer'); const div = document.createElement('div'); div.className = "grid grid-cols-12 gap-2 items-center assistant-detail-row mb-2";
+            div.innerHTML = `<div class="col-span-6"><input type="text" value="${name}" list="assistantNamesList" placeholder="名字" class="as-name-input w-full rounded-lg p-2 border border-rose-100 text-sm" oninput="updateQuickAssistantTags()"></div><div class="col-span-5"><input type="number" value="${amount}" oninput="calcAssistantTotal()" class="as-amount-input w-full rounded-lg p-2 border border-rose-100 text-sm font-bold text-rose-600"></div><div class="col-span-1 text-center"><button type="button" onclick="this.parentElement.parentElement.remove(); calcAssistantTotal(); updateQuickAssistantTags();" class="text-rose-400 font-bold text-lg">&times;</button></div>`;
+            container.appendChild(div); updateQuickAssistantTags(); calcAssistantTotal();
+        };
+        window.calcAssistantTotal = () => { let total = 0; document.querySelectorAll('.as-amount-input').forEach(input => total += (parseInt(input.value) || 0)); document.getElementById('assistantPay').value = total; calcFormNet(); };
+        window.calcFormNet = () => { document.getElementById('formNetProfit').value = `$${((parseInt(document.getElementById('totalAmount').value) || 0) - (parseInt(document.getElementById('assistantPay').value) || 0)).toLocaleString()}`; };
+        window.updateQuickAssistantTags = () => {
+            const container = document.getElementById('quickAssistantTags'); const currentNamesInForm = Array.from(document.querySelectorAll('.as-name-input')).map(input => input.value.trim());
+            const availableNames = knownAssistantNames.filter(name => !currentNamesInForm.includes(name));
+            if (availableNames.length === 0) { container.innerHTML = '<span class="text-[10px] text-rose-300">無更多常用名字</span>'; return; }
+            container.innerHTML = availableNames.map(name => `<button type="button" onclick="addAssistantRow('${name}')" class="px-2 py-1 bg-white border border-rose-200 text-rose-600 rounded text-[10px] hover:bg-rose-50 transition-colors font-medium">+ ${name}</button>`).join('');
+        };
+        window.updateQuickPassTags = () => {
+            const container = document.getElementById('quickPassTags'); const currentName = document.getElementById('passFrom').value.trim();
+            const availableNames = knownPassNames.filter(name => name !== currentName);
+            if (availableNames.length === 0) { container.innerHTML = '<span class="text-[10px] text-indigo-300">尚無常用對象</span>'; return; }
+            container.innerHTML = availableNames.map(name => `<button type="button" onclick="document.getElementById('passFrom').value='${name}'; updateQuickPassTags();" class="px-2 py-1 bg-white border border-indigo-200 text-indigo-600 rounded text-[10px] hover:bg-indigo-50 font-medium">${name}</button>`).join('');
+        };
+        window.toggleDone = async (id, currentStatus) => await updateDoc(doc(db, (currentAppMode === 'car' ? 'carRecords' : 'cleaningRecords') + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid), id), { status: currentStatus === 'completed' ? 'pending' : 'completed' });
+        window.togglePayment = async (id, currentPayment) => await updateDoc(doc(db, (currentAppMode === 'car' ? 'carRecords' : 'cleaningRecords') + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid), id), { payment: currentPayment === 'paid' ? 'unpaid' : 'paid' });
+
+        document.getElementById('recordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            let assistantArray = [];
+            document.querySelectorAll('.assistant-detail-row').forEach(row => {
+                const n = row.querySelector('.as-name-input').value.trim(); const a = row.querySelector('.as-amount-input').value;
+                if (n && a) assistantArray.push(`${n}:${a}`);
+            });
+            const record = { bookingTime: document.getElementById('bookingTime').value, customerName: document.getElementById('customerName').value, phone: document.getElementById('phone').value || "", address: document.getElementById('address').value || "", assistantDetail: assistantArray.join(','), passFrom: document.getElementById('passFrom').value.trim(), totalAmount: parseInt(document.getElementById('totalAmount').value) || 0, assistantPay: parseInt(document.getElementById('assistantPay').value) || 0, note: document.getElementById('note').value || '' };
+
+            if (currentAppMode === 'ac') {
+                const totalAc = parseInt(document.getElementById('acCount').value) || 0; let acDetailTotal = 0; let acDetailsArray = [];
+                document.querySelectorAll('.ac-detail-row').forEach(row => {
+                    const brand = row.querySelector('.ac-brand-input').value.trim(); const qty = parseInt(row.querySelector('.ac-qty-input').value) || 0; const price = row.querySelector('.ac-price-input').value;
+                    acDetailTotal += qty; if (brand || qty > 0) acDetailsArray.push(`${brand || '機型未填'}-${qty}台${price ? `*${price}元` : ''}`);
+                });
+                if (totalAc > 0 && acDetailTotal !== totalAc) { alert(`⚠️ 明細台數不符！`); return; }
+                record.acCount = totalAc; record.wmCount = parseInt(document.getElementById('wmCount').value) || 0; record.wtCount = parseInt(document.getElementById('wtCount').value) || 0; record.acBrand = acDetailsArray.join('+');
+            } else {
+                record.carBrand = document.getElementById('carBrand').value.trim(); record.carModel = document.getElementById('carModel').value.trim(); record.licensePlate = document.getElementById('licensePlate').value.trim(); record.carType = document.getElementById('carType').value;
+                let carSvcs = [];
+                for (let i = 1; i <= 5; i++) { const cb = document.getElementById(`carSvc_${i}`); if (cb.checked) carSvcs.push(`${cb.value}*${document.getElementById(`carPrice_${i}`).value || '0'}元`); }
+                record.carServices = carSvcs.join('+');
+            }
+            try {
+                const collName = (currentAppMode === 'car' ? 'carRecords' : 'cleaningRecords') + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid);
+                if (editingId) {
+                    const original = allRecords.find(r => r.id === editingId); record.status = original.status; record.payment = original.payment;
+                    await updateDoc(doc(db, collName, editingId), record); editingId = null;
+                } else { record.status = 'pending'; record.payment = 'unpaid'; await addDoc(collection(db, collName), record); }
+                prepareNewForm(); showPage('listPage');
+            } catch (err) { alert('儲存失敗'); }
+        });
+
+        function updateDatalists() {
+            const asNames = new Set(), psNames = new Set();
+            allRecords.forEach(r => { 
+                if (r.assistantDetail) r.assistantDetail.split(',').forEach(s => { const name = s.split(':')[0]; if (name) asNames.add(name); }); 
+                if (r.passFrom) psNames.add(r.passFrom);
+            });
+            knownAssistantNames = Array.from(asNames).sort(); knownPassNames = Array.from(psNames).sort();
+            document.getElementById('assistantNamesList').innerHTML = knownAssistantNames.map(n => `<option value="${n}">`).join('');
+            document.getElementById('passNamesList').innerHTML = knownPassNames.map(n => `<option value="${n}">`).join('');
+            updateQuickAssistantTags(); updateQuickPassTags();
+        }
+
+        window.togglePassSummary = (sectionId) => {
+            const section = document.getElementById(sectionId); if (!section) return; section.classList.toggle('pass-collapsed');
+            const text = section.querySelector('.pass-toggle-text'); if (text) text.innerText = section.classList.contains('pass-collapsed') ? '展開' : '收合';
+        };
+
+        window.toggleAssistantModal = (title = "小幫手薪資總計 (全期)", records = allRecords) => {
+            const modal = document.getElementById('assistantSummaryModal'); const overlay = document.getElementById('assistantSummaryOverlay');
+            if (modal.classList.contains('hidden')) { document.getElementById('assistantModalTitle').innerText = title; renderAssistantSummary(records); modal.classList.remove('hidden'); overlay.classList.remove('hidden'); } 
+            else { modal.classList.add('hidden'); overlay.classList.add('hidden'); } lucide.createIcons();
+        };
+
+        window.showAllAssistantDetails = () => toggleAssistantModal("小幫手薪資總計 (全期)", allRecords);
+        window.showYearAssistantDetails = () => toggleAssistantModal(`${document.getElementById('yearTitle').innerText} 小幫手薪資`, currentYearRecords);
+        window.showMonthAssistantDetails = () => toggleAssistantModal(`${document.getElementById('monthTitle').innerText} 小幫手薪資`, currentMonthRecords);
+
+        function renderAssistantSummary(records) {
+            const summary = {}; let unclassified = 0;
+            records.forEach(r => {
+                const totalPay = parseInt(r.assistantPay) || 0; if (totalPay <= 0) return;
+                if (r.assistantDetail) { r.assistantDetail.split(',').forEach(detail => { const [name, amount] = detail.split(':'); const amt = parseInt(amount) || 0; if (name) summary[name] = (summary[name] || 0) + amt; else unclassified += amt; }); } else unclassified += totalPay;
+            });
+            const container = document.getElementById('assistantSummaryList'); let html = "";
+            Object.keys(summary).sort((a, b) => summary[b] - summary[a]).forEach(name => { html += `<div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100"><span class="font-bold text-slate-700 flex items-center gap-2"><i data-lucide="user" class="w-4 h-4 text-slate-400"></i>${name}</span><span class="font-black text-rose-500">$${summary[name].toLocaleString()}</span></div>`; });
+            if (unclassified > 0) html += `<div class="flex justify-between items-center bg-amber-50 p-3 rounded-xl border border-amber-100"><span class="font-bold text-amber-700 flex items-center gap-2"><i data-lucide="help-circle" class="w-4 h-4 text-amber-400"></i>未分類 / 舊紀錄</span><span class="font-black text-amber-600">$${unclassified.toLocaleString()}</span></div>`;
+            if (html === "") html = "<p class='text-center text-slate-400 py-4'>該期間尚無小幫手支出紀錄</p>";
+            container.innerHTML = html;
+        }
+
+        window.copyText = (text, btn) => {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHTML = btn.innerHTML; btn.innerHTML = '<i data-lucide="check" class="text-emerald-500 w-[10px] h-[10px]"></i>'; lucide.createIcons();
+                setTimeout(() => { btn.innerHTML = originalHTML; lucide.createIcons(); }, 1500);
+            });
+        };
+
+        window.toggleFilterPanel = () => {
+            const shell = document.getElementById('filterShell'); if (!shell) return; shell.classList.toggle('filter-collapsed');
+            const word = shell.querySelector('.filter-toggle-word'); if (word) word.innerText = shell.classList.contains('filter-collapsed') ? '展開' : '收合'; lucide.createIcons();
+        };
+
+        window.clearAllFilters = () => {
+            document.getElementById('searchKeyword').value = "";
+            document.getElementById('dateStartFilter').value = formatLocalDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+            document.getElementById('dateEndFilter').value = formatLocalDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
+            currentTypeFilter = 'all'; currentStatusFilter = 'all';
+            document.querySelectorAll('.type-btn, .status-btn').forEach(btn => { btn.classList.remove('bg-white', 'bg-slate-200', 'bg-emerald-100', 'bg-amber-100', 'bg-blue-100', 'bg-purple-100', 'shadow-sm', 'text-slate-700'); btn.classList.add('text-slate-400'); });
+            document.querySelector('.type-btn[onclick*="\'all\'"]').classList.add('bg-slate-200', 'shadow-sm', 'text-slate-700'); document.querySelector('.type-btn[onclick*="\'all\'"]').classList.remove('text-slate-400');
+            document.querySelector('.status-btn[onclick*="\'all\'"]').classList.add('bg-slate-200', 'shadow-sm', 'text-slate-700'); document.querySelector('.status-btn[onclick*="\'all\'"]').classList.remove('text-slate-400');
+            filterRecords(); lucide.createIcons();
+        };
+
+        window.toggleFloatingUnpaid = () => { const list = document.getElementById('floatingUnpaidList'); if (list) list.classList.toggle('hidden'); };
+        window.setStatusFilter = (val, btn) => {
+            currentStatusFilter = val;
+            document.querySelectorAll('.status-btn').forEach(b => { b.classList.remove('bg-white', 'bg-slate-200', 'bg-emerald-100', 'bg-amber-100', 'shadow-sm', 'text-slate-700'); b.classList.add('text-slate-400'); });
+            btn.classList.add({ all: 'bg-slate-200', completed: 'bg-emerald-100', pending: 'bg-amber-100' }[val], 'shadow-sm', 'text-slate-700'); btn.classList.remove('text-slate-400'); filterRecords();
+        };
+
+        window.setTypeFilter = (val, btn) => {
+            currentTypeFilter = val;
+            document.querySelectorAll('.type-btn').forEach(b => { b.classList.remove('bg-white', 'bg-slate-200', 'bg-emerald-100', 'bg-blue-100', 'bg-purple-100', 'shadow-sm', 'text-slate-700'); b.classList.add('text-slate-400'); });
+            btn.classList.add({ all: 'bg-slate-200', ac: 'bg-emerald-100', wm: 'bg-blue-100', wt: 'bg-purple-100', '轎車': 'bg-emerald-100', '休旅車': 'bg-blue-100', '7人座': 'bg-purple-100' }[val], 'shadow-sm', 'text-slate-700'); btn.classList.remove('text-slate-400'); filterRecords();
+        };
+
+        window.filterRecords = () => {
+            const kw = (document.getElementById('searchKeyword').value || '').trim().toLowerCase(); const keywordTerms = kw.split(/\s+/).filter(Boolean);
+            const startDate = document.getElementById('dateStartFilter').value; const endDate = document.getElementById('dateEndFilter').value;
+            const type = currentTypeFilter; const status = currentStatusFilter;
+            let aAc = 0, aWm = 0, aWt = 0, aRev = 0, aExp = 0, aRevAc = 0, aRevCar = 0, yRev = 0, yExp = 0, yAc = 0, yWm = 0, yWt = 0, fRev = 0, fExp = 0, fAc = 0, fWm = 0, fWt = 0;
+            let systemUnpaidDetails = [], systemPendingDetails = [], yPassSummary = {}, fPassSummary = {};
+            currentYearRecords = []; currentMonthRecords = [];
+            const now = new Date(); const filterYear = startDate ? startDate.split('-')[0] : now.getFullYear().toString();
+            const currentMonthFirst = formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1)); const currentMonthLast = formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+            const isPureCurrentMonth = startDate === currentMonthFirst && endDate === currentMonthLast && !kw && type === 'all' && status === 'all';
+            const periodTitle = isPureCurrentMonth ? `${String(now.getMonth() + 1).padStart(2, '0')} 月份統計` : (startDate && endDate ? `${startDate.replaceAll('-', '/')}～${endDate.replaceAll('-', '/')} 篩選統計` : '篩選統計');
+            document.getElementById('yearTitle').innerText = `${filterYear} 年度統計`; document.getElementById('monthTitle').innerText = periodTitle;
+            const normalizeSearchText = (text) => String(text || '').toLowerCase().replace(/[\s\-－–—_()（）\[\]【】,，.。:：;；/\\]+/g, '');
+            const matchesKeywords = (record) => {
+                if (keywordTerms.length === 0) return true;
+                const raw = `${record.customerName||''} ${record.phone||''} ${record.address||''} ${record._type==='car'?record.carBrand||'':record.acBrand||''} ${record.note||''}`.toLowerCase();
+                const compact = normalizeSearchText(raw);
+                return keywordTerms.every(term => raw.includes(term) || (normalizeSearchText(term) && compact.includes(normalizeSearchText(term))));
+            };
+            const baseFiltered = allRecords.filter(i => {
+                const recordDate = (i.bookingTime || '').substring(0, 10);
+                let matchType = currentAppMode === 'summary' ? true : (currentAppMode === 'ac' || i._type === 'ac' ? (type === 'all' || (type === 'ac' && (parseInt(i.acCount)||0)>0) || (type === 'wm' && (parseInt(i.wmCount)||0)>0) || (type === 'wt' && (parseInt(i.wtCount)||0)>0)) : (type === 'all' || i.carType === type));
+                return matchesKeywords(i) && (!startDate || recordDate >= startDate) && (!endDate || recordDate <= endDate) && matchType && (status === 'all' || i.status === status);
+            });
+
+            const addPassSummary = (target, record) => {
+                if (!record.passFrom) return;
+                if (!target[record.passFrom]) target[record.passFrom] = { qty: 0, rev: 0, exp: 0 };
+                target[record.passFrom].qty += (record._type === 'ac' ? ((parseInt(record.acCount)||0)+(parseInt(record.wmCount)||0)+(parseInt(record.wtCount)||0)) : 1);
+                target[record.passFrom].rev += (parseInt(record.totalAmount) || 0); target[record.passFrom].exp += (parseInt(record.assistantPay) || 0);
+            };
+
+            allRecords.forEach(r => {
+                const rev = parseInt(r.totalAmount) || 0; const exp = parseInt(r.assistantPay) || 0;
+                let ac = 0, wm = 0, wt = 0;
+                if (r._type === 'ac' || (!r._type && currentAppMode === 'ac')) { ac = parseInt(r.acCount) || 0; wm = parseInt(r.wmCount) || 0; wt = parseInt(r.wtCount) || 0; aRevAc += rev; } 
+                else { if (r.carType === '轎車') ac = 1; if (r.carType === '休旅車') wm = 1; if (r.carType === '7人座') wt = 1; aRevCar += rev; }
+                if (r.payment === 'unpaid') systemUnpaidDetails.push({ id: r.id, name: r.customerName || '未填姓名', amount: rev });
+                if (r.status !== 'completed') systemPendingDetails.push({ id: r.id, name: r.customerName || '未填姓名', time: (r.bookingTime || '').replace('T', ' ') });
+                aAc += ac; aWm += wm; aWt += wt; aRev += rev; aExp += exp;
+                if ((r.bookingTime || '').split('-')[0] === filterYear) { currentYearRecords.push(r); yRev += rev; yExp += exp; yAc += ac; yWm += wm; yWt += wt; addPassSummary(yPassSummary, r); }
+            });
+
+            baseFiltered.forEach(r => {
+                const rev = parseInt(r.totalAmount) || 0; const exp = parseInt(r.assistantPay) || 0;
+                let ac = 0, wm = 0, wt = 0;
+                if (r._type === 'ac' || (!r._type && currentAppMode === 'ac')) { ac = parseInt(r.acCount) || 0; wm = parseInt(r.wmCount) || 0; wt = parseInt(r.wtCount) || 0; } 
+                else { if (r.carType === '轎車') ac = 1; if (r.carType === '休旅車') wm = 1; if (r.carType === '7人座') wt = 1; }
+                currentMonthRecords.push(r); fRev += rev; fExp += exp; fAc += ac; fWm += wm; fWt += wt; addPassSummary(fPassSummary, r);
+            });
+
+            let procTotal = 0; dataProc.forEach(p => procTotal += (parseInt(p.amount) || 0));
+            let budget = currentAppMode === 'summary' ? Math.floor(aRevAc * ((budgetPctData.ac || 10) / 100)) + Math.floor(aRevCar * ((budgetPctData.car || 10) / 100)) : Math.floor(aRev * ((budgetPctData[currentAppMode] || 10) / 100));
+            
+            document.getElementById('procBudget').innerText = `$${budget.toLocaleString()}`; document.getElementById('procSpent').innerText = `$${procTotal.toLocaleString()}`; document.getElementById('procRemain').innerText = `$${(budget - procTotal).toLocaleString()}`; document.getElementById('actualNet').innerText = `$${((aRev - aExp) - procTotal).toLocaleString()}`;
+
+            const floatingWrap = document.getElementById('floatingUnpaidWrap');
+            if (systemUnpaidDetails.length > 0 || systemPendingDetails.length > 0) {
+                floatingWrap.classList.remove('hidden'); document.getElementById('unpaidCountBadge').innerText = systemUnpaidDetails.length + systemPendingDetails.length;
+                document.getElementById('pendingSectionCount').innerText = `${systemPendingDetails.length} 筆`; document.getElementById('unpaidSectionCount').innerText = `${systemUnpaidDetails.length} 筆`;
+                document.getElementById('floatingPendingItems').innerHTML = systemPendingDetails.map(item => `<div class="floating-unpaid-item"><button onclick="scrollToRecord('${item.id}'); toggleFloatingUnpaid();" class="text-left hover:underline text-[13px] font-bold text-emerald-800 truncate flex-1">• ${item.name}</button><span class="font-black text-emerald-600 text-[11px] ml-2 whitespace-nowrap">${item.time}</span></div>`).join('');
+                document.getElementById('floatingUnpaidItems').innerHTML = systemUnpaidDetails.map(item => `<div class="floating-unpaid-item"><button onclick="scrollToRecord('${item.id}'); toggleFloatingUnpaid();" class="text-left hover:underline text-[13px] font-bold text-amber-800 truncate flex-1">• ${item.name}</button><span class="font-black text-amber-600 text-[13px] ml-2">$${item.amount.toLocaleString()}</span></div>`).join('');
+            } else { floatingWrap.classList.add('hidden'); }
+
+            document.getElementById('allAc').innerText = aAc; document.getElementById('allWm').innerText = aWm; document.getElementById('allWt').innerText = aWt;
+            document.getElementById('allRev').innerText = `$${aRev.toLocaleString()}`; document.getElementById('allExp').innerText = `$${aExp.toLocaleString()}`; document.getElementById('allNet').innerText = `$${(aRev - aExp).toLocaleString()}`;
+            document.getElementById('yRev').innerText = `$${yRev.toLocaleString()}`; document.getElementById('yExp').innerText = `$${yExp.toLocaleString()}`; document.getElementById('yNet').innerText = `$${(yRev - yExp).toLocaleString()}`;
+            const unitType = currentAppMode === 'ac' ? ['冷', '洗', '水'] : ['轎', '休', '7'];
+            document.getElementById('yCounts').innerText = `${unitType[0]}${yAc} / ${unitType[1]}${yWm} / ${unitType[2]}${yWt}`;
+            document.getElementById('mRev').innerText = `$${fRev.toLocaleString()}`; document.getElementById('mExp').innerText = `$${fExp.toLocaleString()}`; document.getElementById('mNet').innerText = `$${(fRev - fExp).toLocaleString()}`;
+            document.getElementById('mCounts').innerText = `${unitType[0]}${fAc} / ${unitType[1]}${fWm} / ${unitType[2]}${fWt}｜${baseFiltered.length} 筆`;
+            renderRecords(baseFiltered.sort((a, b) => (b.bookingTime || '').localeCompare(a.bookingTime || ''))); lucide.createIcons();
+        };
+
+        function renderRecords(data) {
+            document.getElementById('recordList').innerHTML = data.map(i => {
+                let services = [];
+                if (i._type === 'ac' || (!i._type && currentAppMode === 'ac')) {
+                    let headerText = []; if(i.acCount > 0) headerText.push(`冷氣${i.acCount}台`); if(i.wmCount > 0) headerText.push(`洗衣機${i.wmCount}台`); if(i.wtCount > 0) headerText.push(`水塔${i.wtCount}口`);
+                    if(headerText.length > 0) services.push(`<div class="font-bold text-emerald-700 pb-1 mb-1 border-b border-slate-100 flex items-center flex-wrap gap-y-1"><span>${headerText.join('、')}</span></div>`);
+                    let svcItemsArr = [];
+                    if (i.acBrand) { i.acBrand.split('+').forEach(svc => { const m = svc.match(/(.*?)-(\d+)台(?:\*(\d+)元)?/); if (m) { svcItemsArr.push(`<div class="flex justify-between items-center text-[0.85rem] border-b border-slate-100 border-dashed py-1.5 last:border-0"><span class="text-slate-600">${m[1]||'機型未填'} ${(m[3]&&m[3]>0)?`<span class="text-slate-400 text-[0.75rem] ml-1">($${m[3]} × ${m[2]})</span>`:''}</span><span class="text-slate-700 font-bold">${m[3]&&m[3]>0?`$${(m[2]*m[3]).toLocaleString()}`:m[2]+'台'}</span></div>`); } else { const parts = svc.split('*'); svcItemsArr.push(`<div class="flex justify-between items-center text-[0.85rem] border-b border-slate-100 border-dashed py-1.5 last:border-0"><span class="text-slate-600">${parts[0]}</span><span class="text-slate-700 font-bold">${parts[1]||''}</span></div>`); } }); } 
+                    else if (i.acCount > 0) svcItemsArr.push(`<div class="flex justify-between items-center text-[0.85rem] border-b border-slate-100 border-dashed py-1.5 last:border-0"><span class="text-slate-600">冷氣清洗</span><span class="text-slate-700 font-bold">${i.acCount}台</span></div>`);
+                    if(i.assistantDetail) i.assistantDetail.split(',').forEach(s => { const [n, a] = s.split(':'); svcItemsArr.push(`<div class="flex justify-between items-center text-[0.85rem] border-b border-slate-100 border-dashed py-1.5 last:border-0"><span class="text-rose-500">小幫手：${n}</span><span class="text-rose-600 font-bold">-$${(parseInt(a)||0).toLocaleString()}</span></div>`); });
+                    if(svcItemsArr.length > 0) services.push(`<div>${svcItemsArr.join('')}</div>`);
+                } else {
+                    services.push(`<div class="font-bold text-blue-700 pb-1 mb-1 border-b border-slate-100 flex items-center flex-wrap gap-y-1"><span>${i.carBrand||''} ${i.carModel||''} ${i.carType}</span>${i.licensePlate?`<span class="ml-2 bg-white text-slate-800 font-mono px-2 py-0.5 rounded border border-slate-300 text-[0.65rem] tracking-widest inline-flex items-center gap-1">${i.licensePlate}</span>`:''}</div>`);
+                    let svcItemsArr = [];
+                    if(i.carServices) i.carServices.split('+').forEach(svc => { const parts = svc.split('*'); svcItemsArr.push(`<div class="flex justify-between items-center text-[0.85rem] border-b border-slate-100 border-dashed py-1.5 last:border-0"><span class="text-slate-600">${parts[0]}</span><span class="text-slate-700 font-bold">${parts[1]||''}</span></div>`); });
+                    if(i.assistantDetail) i.assistantDetail.split(',').forEach(s => { const [n, a] = s.split(':'); svcItemsArr.push(`<div class="flex justify-between items-center text-[0.85rem] border-b border-slate-100 border-dashed py-1.5 last:border-0"><span class="text-rose-500">小幫手：${n}</span><span class="text-rose-600 font-bold">-$${(parseInt(a)||0).toLocaleString()}</span></div>`); });
+                    if(svcItemsArr.length > 0) services.push(`<div>${svcItemsArr.join('')}</div>`);
+                }
+                let isComp = i.status === 'completed'; let isPaid = i.payment === 'paid';
+                return `<tr id="rec-${i.id}" class="${isComp ? 'completed-row' : ''}">
+                    <td data-label="預約時間" class="px-6 py-4 time-display flex justify-between items-center"><span>${i.bookingTime.replace('T',' ')} ${i._type === 'car' ? '<span class="text-blue-500 text-[10px] ml-1">[汽車]</span>' : (i._type === 'ac' ? '<span class="text-emerald-500 text-[10px] ml-1">[冷氣]</span>' : '')}</span>${i.passFrom ? `<span class="text-indigo-500 font-bold flex items-center gap-1"><i data-lucide="forward" class="w-3 h-3"></i>PASS: ${i.passFrom}</span>` : '<span></span>'}</td>
+                    <td data-label="客戶" class="px-6 py-4 flex items-center gap-2"><span class="font-bold text-slate-900">${i.customerName}</span>${i.phone ? `<span class="text-[12px] text-slate-400 flex items-center gap-0.5"><i data-lucide="phone" class="w-3 h-3"></i>${i.phone}</span>` : ''}</td>
+                    <td class="px-6 py-1 text-slate-500 text-xs flex items-center gap-1.5">${i.address ? `<span class="flex items-center gap-0.5"><i data-lucide="map-pin" class="w-3 h-3"></i>${i.address}</span><button onclick="copyText('${i.address}', this)" class="bg-slate-100 p-1 rounded-md"><i data-lucide="copy" class="w-2.5 h-2.5"></i></button>` : ''}</td>
+                    <td data-label="服務明細" class="px-6 py-2 text-slate-600"><div class="leading-tight">${services.join('')}</div>${i.note ? `<div class="text-[11px] text-slate-400 note-display mt-0.5">備註: ${i.note}</div>` : ''}</td>
+                    <td data-label="金額帳目" class="px-6 py-4 text-slate-600 font-medium"><div class="record-metric-grid"><div class="metric-box metric-box-rev"><span class="metric-box-label">收入</span><span class="metric-box-value">$${i.totalAmount.toLocaleString()}</span></div><div class="metric-box metric-box-exp"><span class="metric-box-label">支出</span><span class="metric-box-value">$${i.assistantPay.toLocaleString()}</span></div><div class="metric-box metric-box-net"><span class="metric-box-label">淨利</span><span class="metric-box-value">$${(i.totalAmount - i.assistantPay).toLocaleString()}</span></div></div></td>
+                    <td class="px-6 py-4 action-cell">
+                        <button onclick="toggleDone('${i.id}', '${i.status}')" class="flex items-center gap-1 ${isComp ? 'text-slate-400 bg-slate-50 border-slate-200' : 'text-emerald-700 bg-emerald-50 border-emerald-100'} px-2 py-1.5 rounded-lg border text-[10px] font-bold"><i data-lucide="${isComp ? 'check-circle' : 'circle'}" class="w-3 h-3"></i><span>${isComp ? '已完成' : '未完成'}</span></button>
+                        <button onclick="togglePayment('${i.id}', '${i.payment}')" class="flex items-center gap-1 ${isPaid ? 'text-slate-400 bg-slate-50 border-slate-200' : 'text-amber-700 bg-amber-50 border-amber-100'} px-2 py-1.5 rounded-lg border text-[10px] font-bold"><i data-lucide="${isPaid ? 'banknote' : 'clock'}" class="w-3 h-3"></i><span>${isPaid ? '已收款' : '待收款'}</span></button>
+                        <button onclick="downloadRec('${i.id}')" class="text-indigo-600 bg-indigo-50 px-2 py-1.5 rounded-lg border border-indigo-100"><i data-lucide="image" class="w-3 h-3"></i></button>
+                        <button onclick="editRec('${i.id}')" class="text-slate-600 bg-slate-100 px-2 py-1.5 rounded-lg border"><i data-lucide="edit-2" class="w-3 h-3"></i></button>
+                        <button onclick="deleteRec('${i.id}')" class="text-rose-400 bg-rose-50 px-2 py-1.5 rounded-lg border"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                    </td></tr>`;
+            }).join('');
+        }
+
+        window.scrollToRecord = (id) => { const e = document.getElementById(`rec-${id}`); if (e) { e.scrollIntoView({ behavior: 'smooth', block: 'center' }); e.classList.add('highlight-target'); setTimeout(() => e.classList.remove('highlight-target'), 2000); } };
+        window.editRec = (id) => {
+            const r = allRecords.find(x => x.id === id); if(!r) return; editingId = id;
+            document.getElementById('bookingTime').value = r.bookingTime; document.getElementById('customerName').value = r.customerName; document.getElementById('phone').value = r.phone || ""; document.getElementById('address').value = r.address || ""; document.getElementById('totalAmount').value = r.totalAmount; document.getElementById('assistantPay').value = r.assistantPay; document.getElementById('note').value = r.note; document.getElementById('passFrom').value = r.passFrom || "";
+            if (r._type === 'ac' || (!r._type && currentAppMode === 'ac')) {
+                document.getElementById('acCount').value = r.acCount; document.getElementById('wmCount').value = r.wmCount; document.getElementById('wtCount').value = r.wtCount;
+                const acContainer = document.getElementById('acDetailsContainer'); acContainer.innerHTML = '';
+                if (r.acBrand) { r.acBrand.split('+').forEach(part => { const m = part.match(/(.*)-(.*)台(?:\*(.*)元)?/); if (m) { const div = document.createElement('div'); div.className = "grid grid-cols-12 gap-2 items-center ac-detail-row mb-2"; div.innerHTML = `<div class="col-span-5"><input type="text" value="${m[1]}" class="ac-brand-input w-full rounded-lg p-2 border border-emerald-100 text-sm"></div><div class="col-span-3"><input type="number" value="${m[2]}" oninput="calcTotalFromDetails()" class="ac-qty-input w-full rounded-lg p-2 border border-emerald-100 text-sm font-bold"></div><div class="col-span-3"><input type="number" value="${m[3]||''}" oninput="calcTotalFromDetails()" class="ac-price-input w-full rounded-lg p-2 border border-emerald-100 text-sm"></div><div class="col-span-1 text-center"><button type="button" onclick="this.parentElement.parentElement.remove(); calcTotalFromDetails();" class="text-rose-400 font-bold text-lg">&times;</button></div>`; acContainer.appendChild(div); } }); }
+                toggleAcBrand();
+            } else {
+                document.getElementById('carBrand').value = r.carBrand || ''; document.getElementById('carModel').value = r.carModel || ''; document.getElementById('licensePlate').value = r.licensePlate || ''; document.getElementById('carType').value = r.carType || '轎車';
+                for (let i = 1; i <= 5; i++) { const cb = document.getElementById(`carSvc_${i}`); const input = document.getElementById(`carPrice_${i}`); cb.checked = false; input.classList.add('hidden'); input.value = ''; }
+                if (r.carServices) { r.carServices.split('+').forEach(svc => { const [svcName, amtStr] = svc.split('*'); const amt = amtStr ? amtStr.replace('元', '') : ''; for (let i = 1; i <= 5; i++) { const cb = document.getElementById(`carSvc_${i}`); if (cb.value === svcName) { cb.checked = true; const input = document.getElementById(`carPrice_${i}`); input.classList.remove('hidden'); input.value = amt; } } }); }
+            }
+            const asContainer = document.getElementById('assistantDetailsContainer'); asContainer.innerHTML = '';
+            if (r.assistantDetail) { r.assistantDetail.split(',').forEach(s => { const [name, amt] = s.split(':'); addAssistantRow(name, amt); }); }
+            updateQuickAssistantTags(); updateQuickPassTags(); calcFormNet(); showPage('formPage'); window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+        window.deleteRec = async (id) => { if(confirm('確定要刪除嗎？')) await deleteDoc(doc(db, (currentAppMode === 'car' ? 'carRecords' : 'cleaningRecords') + (allowedEmails.includes((auth.currentUser?.email || '').toLowerCase()) ? '' : "_" + auth.currentUser.uid), id)); };
+        window.downloadRec = (id) => {
+            const el = document.getElementById(`rec-${id}`);
+            const actionCell = el.querySelector('.action-cell');
+            actionCell.style.display = 'none';
+            html2canvas(el, { scale: 2, backgroundColor: "#ffffff" }).then(canvas => {
+                actionCell.style.display = 'flex';
+                const url = canvas.toDataURL("image/png");
+                const link = document.createElement('a'); link.href = url; link.download = `紀錄_${id}.png`;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            });
+        };
+    </script>
+</body></html>
